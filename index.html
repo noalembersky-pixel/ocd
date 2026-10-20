@@ -220,8 +220,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 window.__ph=[];
 window.track=function(ev,props){try{if(window.posthog&&posthog.__loaded)posthog.capture(ev,props||{});else window.__ph.push([ev,props||{}])}catch(e){}};
 </script>
-<script src="https://eu-assets.i.posthog.com/static/array.js" async crossorigin="anonymous"
- onload="try{posthog.init('phc_REPLACE_ME',{api_host:'https://eu.i.posthog.com',persistence:'localStorage',autocapture:false,capture_pageview:true,capture_pageleave:false,disable_session_recording:true,disable_surveys:true});window.__ph.forEach(function(q){posthog.capture(q[0],q[1])});window.__ph=[]}catch(e){}"
+<script src="https://us-assets.i.posthog.com/static/array.js" async crossorigin="anonymous"
+ onload="try{posthog.init('phc_qo4wiAUHZxUNwLi2nGGmHVEUX4cZxUcMNEMy5vxG6jBW',{api_host:'https://us.i.posthog.com',persistence:'localStorage',autocapture:false,capture_pageview:true,capture_pageleave:false,disable_session_recording:true,disable_surveys:true});posthog.register({app:'ocd'});window.__ph.forEach(function(q){posthog.capture(q[0],q[1])});window.__ph=[]}catch(e){}"
  onerror="window.track=function(){}"></script>
 
 <script>
