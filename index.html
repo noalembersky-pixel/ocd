@@ -190,6 +190,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .grip svg{width:22px;height:22px}
 .row.dragging{z-index:20;box-shadow:0 12px 32px rgba(30,20,60,.25);cursor:grabbing}
 .hint{color:var(--muted);font-size:14px;font-weight:600;text-align:center;margin:10px 0 0}
+.by{text-align:center;margin:28px 0 8px;font-size:13px;font-weight:600}
+.by a{color:var(--muted);text-decoration:none;padding:8px}
 .grid.editing .tile{border:1px dashed #A9A6B4;box-shadow:none}
 .grid.editing .tile .pic{filter:none}
 .grid.editing .tile:not(.own)::after{content:"";position:absolute;top:6px;inset-inline-end:6px;width:22px;height:22px;border-radius:50%;background:var(--soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236200EA' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 4l5 5L9 20H4v-5zM13 6l5 5'/%3E%3C/svg%3E") center/13px no-repeat}
@@ -476,7 +478,8 @@ function renderHome(){
      ${S.lists.length?`<button class="tb" data-act="homeedit" aria-label="${V.homeEdit?'Done editing':'Edit lists'}" style="${V.homeEdit?'color:var(--accent)':''}">${li(V.homeEdit?'check':'pen')}</button>`:'<span></span>'}</div>
    ${S.lists.length?'':`<div class="empty">${LOGO}<h2>No checklists yet</h2><p>Make one for leaving home, the office, a trip abroad, or anything you never want to double back for.</p></div>`}
    <div class="stack">${cards}${V.homeEdit?'':`<button class="card add" data-act="newlist">+ Add new list</button>`}</div>
-   <p class="hint" style="margin-top:22px">Saved on this device only. <button class="linkbtn" data-act="export">Export backup</button> &middot; <button class="linkbtn" data-act="import">Import backup</button></p>`;
+   <p class="hint" style="margin-top:22px">Saved on this device only. <button class="linkbtn" data-act="export">Export backup</button> &middot; <button class="linkbtn" data-act="import">Import backup</button></p>
+   <p class="by"><a href="https://oatmealmorning.com/" target="_blank" rel="noopener">by Oatmeal Morning</a></p>`;
 }
 function renderList(){
   const l=cur();if(!l){V.screen='home';return renderHome()}
