@@ -474,9 +474,9 @@ function renderHome(){
     const n=l.items.length,d=l.items.filter(i=>i.checked).length,go=isDone(l),askR=V.ask==='reset:'+l.id;
     return `<div class="card home-card ${go?'on':''}" ${V.homeEdit?'':`role="button" tabindex="0" data-act="open" data-id="${l.id}"`}>
       ${V.homeEdit&&V.ask!==l.id?`<button class="x" data-act="askdel" data-id="${l.id}" aria-label="Delete ${esc(l.name)}">${li('x')}</button>`:''}
-      ${d&&!askR&&!V.homeEdit?`<button class="clr" data-act="askreset" data-id="${l.id}" aria-label="Reset ${esc(l.name)}">${li('reset')}Reset</button>`:''}
+      ${d&&!askR&&!V.homeEdit?`<button class="clr" data-act="askreset" data-id="${l.id}" aria-label="Clear ${esc(l.name)}">${li('reset')}Clear</button>`:''}
       <span class="art">${ic(l.icon)}</span><span class="label">${esc(l.name)}</span>
-      ${askR?`<div class="confirm"><button class="mini pri" data-act="resethome" data-id="${l.id}" aria-label="Confirm reset of ${esc(l.name)}">Uncheck all</button><button class="mini" data-act="noask">Cancel</button></div>`
+      ${askR?`<div class="confirm"><button class="mini pri" data-act="resethome" data-id="${l.id}" aria-label="Confirm clearing ${esc(l.name)}">Uncheck all</button><button class="mini" data-act="noask">Cancel</button></div>`
         :V.ask===l.id?`<div class="confirm"><button class="mini red" data-act="delhome" data-id="${l.id}">Delete</button><button class="mini" data-act="noask">Cancel</button></div>`
         :go?`<span class="chip-go">${li('check')}${T(l).done}</span>`:`<span class="meta">${d} of ${n} checked</span>`}</div>`}).join('');
   app.className='app';
@@ -505,8 +505,8 @@ function renderList(){
        ${V.menu?`<div class="menu-veil" data-act="menu"></div><div class="menu">
          <button data-act="rename">Rename</button><button data-act="additems">Add or remove items</button><button data-act="edit">Reorder items</button><button data-act="typesheet">Finish message</button>
          <button class="red" data-act="askdellist">Delete list</button></div>`:''}</div></div>
-   ${n?`<div class="status">${go?`<div class="status-row go"><span class="gi">${li('check')}</span><div class="txt"><strong>${T(l).done}</strong><small>All ${n} checked</small></div><button class="reset" data-act="reset">${li('reset')}Reset</button></div>`
-     :`<div class="status-row"><div class="txt"><strong>${d} of ${n} checked</strong><div class="bar"><b style="width:${Math.round(d/n*100)}%"></b></div></div><button class="reset" data-act="reset" ${d?'':'disabled'}>${li('reset')}Reset</button></div>`}</div>`:''}
+   ${n?`<div class="status">${go?`<div class="status-row go"><span class="gi">${li('check')}</span><div class="txt"><strong>${T(l).done}</strong><small>All ${n} checked</small></div><button class="reset" data-act="reset">${li('reset')}Clear</button></div>`
+     :`<div class="status-row"><div class="txt"><strong>${d} of ${n} checked</strong><div class="bar"><b style="width:${Math.round(d/n*100)}%"></b></div></div><button class="reset" data-act="reset" ${d?'':'disabled'}>${li('reset')}Clear</button></div>`}</div>`:''}
    ${V.ask==='list'?`<div class="card" style="min-height:0;margin-top:8px;gap:10px"><span class="label">Delete "${esc(l.name)}"?</span><div class="confirm"><button class="mini red" data-act="dellist">Delete</button><button class="mini" data-act="noask">Cancel</button></div></div>`:''}
    <div class="stack">${l.items.map(i=>`<div class="card ${i.checked?'on':''}" role="button" tabindex="0" aria-pressed="${i.checked}" data-act="toggle" data-id="${i.id}">
      <span class="art">${ic(i.icon,i.checked)}</span><span class="label">${esc(i.name)}</span></div>`).join('')}
