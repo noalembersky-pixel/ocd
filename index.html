@@ -90,9 +90,13 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .card.add:hover{background:var(--soft)}
 .card .x{position:absolute;top:10px;inset-inline-end:10px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--soft)}
 .card .x svg{width:14px;height:14px}
+.card .clr{position:absolute;top:10px;inset-inline-end:10px;display:flex;align-items:center;gap:5px;border-radius:6px;padding:5px 10px;font-weight:700;font-size:13px;background:var(--bg);color:var(--accent);border:1.5px solid var(--accent)}
+.card .clr svg{width:13px;height:13px;stroke-width:2.4}
+.card .clr::after{content:"";position:absolute;inset:-8px}
 .confirm{display:flex;gap:10px;justify-content:center}
 .mini{border-radius:6px;padding:6px 14px;font-weight:700;font-size:14px;border:1px solid var(--line);background:var(--bg)}
 .mini.red{background:var(--danger);border-color:var(--danger);color:#fff}
+.mini.pri{background:var(--accent);border-color:var(--accent);color:#fff}
 .chip-go{display:inline-flex;align-items:center;gap:5px;background:var(--accent);color:#fff;border-radius:999px;padding:3px 10px 3px 8px;font-size:13px;font-weight:700}
 .chip-go svg{width:14px;height:14px;stroke-width:3}
 
@@ -467,11 +471,13 @@ function renderHome(){
      <p class="hint">Drag the handle to reorder. Tap the bin to delete.</p>
      <div class="stack rows" data-sort="lists">${S.lists.map(l=>rowHtml(l.id,l.icon,l.name,'delhome')).join('')}</div>`;return}
   const cards=S.lists.map(l=>{
-    const n=l.items.length,d=l.items.filter(i=>i.checked).length,go=isDone(l);
+    const n=l.items.length,d=l.items.filter(i=>i.checked).length,go=isDone(l),askR=V.ask==='reset:'+l.id;
     return `<div class="card home-card ${go?'on':''}" ${V.homeEdit?'':`role="button" tabindex="0" data-act="open" data-id="${l.id}"`}>
       ${V.homeEdit&&V.ask!==l.id?`<button class="x" data-act="askdel" data-id="${l.id}" aria-label="Delete ${esc(l.name)}">${li('x')}</button>`:''}
+      ${d&&!askR&&!V.homeEdit?`<button class="clr" data-act="askreset" data-id="${l.id}" aria-label="Reset ${esc(l.name)}">${li('reset')}Reset</button>`:''}
       <span class="art">${ic(l.icon)}</span><span class="label">${esc(l.name)}</span>
-      ${V.ask===l.id?`<div class="confirm"><button class="mini red" data-act="delhome" data-id="${l.id}">Delete</button><button class="mini" data-act="noask">Cancel</button></div>`
+      ${askR?`<div class="confirm"><button class="mini pri" data-act="resethome" data-id="${l.id}" aria-label="Confirm reset of ${esc(l.name)}">Uncheck all</button><button class="mini" data-act="noask">Cancel</button></div>`
+        :V.ask===l.id?`<div class="confirm"><button class="mini red" data-act="delhome" data-id="${l.id}">Delete</button><button class="mini" data-act="noask">Cancel</button></div>`
         :go?`<span class="chip-go">${li('check')}${T(l).done}</span>`:`<span class="meta">${d} of ${n} checked</span>`}</div>`}).join('');
   app.className='app';
   app.innerHTML=`<div class="topbar"><span></span><h1>My lists</h1>
@@ -604,6 +610,8 @@ function act(a,d={}){
     case 'toggle':{const it=l.items.find(i=>i.id===d.id);it.checked=!it.checked;save();if(it.checked)track('item_completed');
       if(it.checked&&isDone(l)){const t=typeOf(l),C=TYPES[t].cheers;let k;do{k=Math.floor(Math.random()*C.length)}while(C.length>1&&t+':'+k===lastCheer);lastCheer=t+':'+k;V.party={t,k};track('list_completed',{items:l.items.length,type:t});try{navigator.vibrate&&navigator.vibrate([40,60,40])}catch(e){}}break}
     case 'reset':l.items.forEach(i=>i.checked=false);save();toast('All unchecked. Ready for next time.');break;
+    case 'askreset':V.ask='reset:'+d.id;break;
+    case 'resethome':{const x=S.lists.find(y=>y.id===d.id);if(x){x.items.forEach(i=>i.checked=false);save();toast('All unchecked. Ready for next time.')}V.ask=null;break}
     case 'go':V.party=null;V.screen='home';scrollTo(0,0);break;
     case 'stay':V.party=null;break;
     case 'menu':V.menu=!V.menu;break;
@@ -636,7 +644,7 @@ function act(a,d={}){
     case 'enddone':V.rename=false;break;
     case 'askdellist':V.menu=false;V.ask='list';scrollTo(0,0);break;
     case 'dellist':S.lists=S.lists.filter(x=>x.id!==l.id);save();V.screen='home';V.ask=null;toast('List deleted');break;
-    case 'newlist':V.mode='new';V.q='';V.pickEdit=false;V.draft={name:'',icon:'house',starter:-1,items:[]};V.screen='pick';V.homeEdit=false;scrollTo(0,0);break;
+    case 'newlist':V.mode='new';V.q='';V.pickEdit=false;V.draft={name:'',icon:'house',starter:-1,items:[]};V.screen='pick';V.homeEdit=false;V.ask=null;scrollTo(0,0);break;
     case 'additems':V.menu=false;V.mode='add';V.q='';V.pickEdit=false;V.edit=false;V.draft={items:l.items.map(i=>({name:i.name,icon:i.icon}))};V.screen='pick';scrollTo(0,0);break;
     case 'cancelpick':V.screen=V.mode==='new'?'home':'list';V.draft=null;scrollTo(0,0);break;
     case 'starter':{const s=STARTERS[+d.i];const prevStarterName=D.starter>=0?STARTERS[D.starter][0]:null;
