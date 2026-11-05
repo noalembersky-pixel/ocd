@@ -194,6 +194,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .grip svg{width:22px;height:22px}
 .row.dragging{z-index:20;box-shadow:0 12px 32px rgba(30,20,60,.25);cursor:grabbing}
 .hint{color:var(--muted);font-size:14px;font-weight:600;text-align:center;margin:10px 0 0}
+.hint .line-ico{display:inline-block;width:16px;height:16px;vertical-align:-3px;margin:0 1px}
+.hint.start{text-align:start;margin-top:12px}
+.hint.tip{text-wrap:balance}
 .by{text-align:center;margin:6px 0 8px;font-size:13px;font-weight:600}
 .foot{text-align:center;margin:26px 0 0}
 .foot .linkbtn{color:var(--muted);font-size:13px;font-weight:600;padding:8px}
@@ -472,7 +475,7 @@ function rowHtml(id,icon,name,delAct){
 function renderHome(){
   if(V.homeEdit&&S.lists.length){app.className='app';
     app.innerHTML=`<div class="topbar"><span></span><h1>Edit lists</h1><button class="tb" data-act="homeedit" aria-label="Done editing" style="color:var(--accent)">${li('check')}</button></div>
-     <p class="hint">Drag the handle to reorder. Tap the bin to delete.</p>
+     <p class="hint tip">Drag ${li('grip')} to reorder. Tap ${li('trash')} to delete.</p>
      <div class="stack rows" data-sort="lists">${S.lists.map(l=>rowHtml(l.id,l.icon,l.name,'delhome')).join('')}</div>`;return}
   const cards=S.lists.map(l=>{
     const n=l.items.length,d=l.items.filter(i=>i.checked).length,go=isDone(l),askR=V.ask==='reset:'+l.id;
@@ -497,7 +500,7 @@ function renderList(){
   if(V.edit){app.className='app';
     app.innerHTML=`<div class="topbar t2"><button class="tb" data-act="home" aria-label="Back to my lists">${li('back')}</button><h1>${esc(l.name)}</h1>
       <div class="tb-group"><button class="tb" data-act="edit" aria-label="Done editing" style="color:var(--accent)">${li('check')}</button></div></div>
-     <p class="hint">${n?'Drag the handle to reorder. Tap the bin to remove.':'This list is empty.'}</p>
+     <p class="hint tip">${n?`Drag ${li('grip')} to reorder. Tap ${li('trash')} to remove.`:'This list is empty.'}</p>
      <div class="stack rows" data-sort="items">${l.items.map(i=>rowHtml(i.id,i.icon,i.name,'delitem')).join('')}</div>
      <div class="stack"><button class="card add" data-act="additems">+ Add item</button></div>`;return}
   app.className='app';
@@ -512,6 +515,7 @@ function renderList(){
    ${n?`<div class="status">${go?`<div class="status-row go"><span class="gi">${li('check')}</span><div class="txt"><strong>${T(l).done}</strong><small>All ${n} checked</small></div><button class="reset" data-act="reset">${li('reset')}Clear</button></div>`
      :`<div class="status-row"><div class="txt"><strong>${d} of ${n} checked</strong><div class="bar"><b style="width:${Math.round(d/n*100)}%"></b></div></div><button class="reset" data-act="reset" ${d?'':'disabled'}>${li('reset')}Clear</button></div>`}</div>`:''}
    ${V.ask==='list'?`<div class="card" style="min-height:0;margin-top:8px;gap:10px"><span class="label">Delete "${esc(l.name)}"?</span><div class="confirm"><button class="mini red" data-act="dellist">Delete</button><button class="mini" data-act="noask">Cancel</button></div></div>`:''}
+   ${V.tip===l.id?`<p class="hint tip">Tap an item to check it. Tap ${li('pen')} to remove or reorder.</p>`:''}
    <div class="stack">${l.items.map(i=>`<div class="card ${i.checked?'on':''}" role="button" tabindex="0" aria-pressed="${i.checked}" data-act="toggle" data-id="${i.id}">
      <span class="art">${ic(i.icon,i.checked)}</span><span class="label">${esc(i.name)}</span></div>`).join('')}
      <button class="card add" data-act="additems">+ Add item</button></div>`;
@@ -542,6 +546,7 @@ function renderPick(){
      <div class="field"><input id="dname" maxlength="30" placeholder="e.g. Leave home" value="${esc(D.name)}" aria-label="Checklist name"></div>
      <div class="sec-title">Start from an idea</div>
      <div class="chips">${STARTERS.map((s,i)=>`<button class="${D.starter===i?'on':''}" data-act="starter" data-i="${i}"><span class="art">${ic(s[1])}</span>${esc(s[0])}</button>`).join('')}</div>
+     ${D.starter>=0&&D.items.length?`<p class="hint start">${D.items.length} item${D.items.length>1?'s':''} picked. Tap any below to remove it, or add more.</p>`:''}
      <div class="sec-title">Pick an illustration</div>
      <div class="icons">${iconRow(D)}</div>`:''}
    <div class="sec-title">${isNew?'Choose what goes in':'Tap to add or remove'}</div>
@@ -605,7 +610,8 @@ function renderLayer(){
     return}
   layer.innerHTML='';
 }
-function render(){({splash:renderSplash,home:renderHome,list:renderList,pick:renderPick})[V.screen]();renderLayer()}
+function render(){if(V.tip&&(V.screen!=='list'||V.listId!==V.tip||V.edit||V.menu)){V.tip=null;S.tip=true;save()}
+  ({splash:renderSplash,home:renderHome,list:renderList,pick:renderPick})[V.screen]();renderLayer()}
 function toast(t){const el=document.createElement('div');el.className='toast';el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),1600)}
 
 function act(a,d={}){
@@ -676,7 +682,7 @@ function act(a,d={}){
     case 'savepick':{
       if(V.mode==='new'){if(!D.name.trim()||!D.items.length)return;
         const nl={id:uid(),name:D.name.trim(),icon:D.icon,items:D.items.map(i=>({id:uid(),name:i.name,icon:i.icon,checked:false}))};
-        S.lists.push(nl);save();V.listId=nl.id;V.screen='list';track('list_created',{items:nl.items.length,starter:D.starter>=0?STARTERS[D.starter][0]:'none'});
+        S.lists.push(nl);save();V.listId=nl.id;V.screen='list';if(!S.tip)V.tip=nl.id;track('list_created',{items:nl.items.length,starter:D.starter>=0?STARTERS[D.starter][0]:'none'});
       } else {
         const old=new Map(l.items.map(i=>[i.name,i]));
         const added=D.items.filter(i=>!old.has(i.name)).length;l.items=D.items.map(i=>old.get(i.name)||{id:uid(),name:i.name,icon:i.icon,checked:false});save();V.screen='list';if(added)track('item_added',{count:added,total:l.items.length});
