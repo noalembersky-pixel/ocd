@@ -158,8 +158,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .sheet-head{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;padding:8px 12px 0}
 .sheet-head h2{margin:0;text-align:center;font-size:17px;font-weight:600}
 .sheet-in{overflow-y:auto;padding:8px max(24px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(24px,env(safe-area-inset-left,0px))}
-.picker{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
-.picker button{aspect-ratio:1;border-radius:8px;padding:7px;border:2px solid transparent;background:var(--soft)}
+.picker{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.picker button{position:relative;display:block;width:100%;min-width:0;height:0;padding:0 0 calc(100% - 4px);border-radius:8px;border:2px solid transparent;background:var(--soft)}
+.picker .pic{position:absolute;top:7px;left:7px;width:calc(100% - 14px);height:calc(100% - 14px)}
 .picker button.on{background:var(--accent-soft);border-color:var(--accent);--tone:var(--accent)}
 .sheet .btn{margin-top:20px}
 @keyframes up{from{transform:translateY(100%)}}
@@ -217,7 +218,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .opt .oi{width:26px;height:26px;flex:none;color:var(--accent)}
 .opt:disabled{opacity:.45;cursor:default}
 .opt.on .dot{border:6px solid var(--accent)}
-@media (max-width:360px){.grid{grid-template-columns:repeat(2,1fr)}.picker{grid-template-columns:repeat(5,1fr)}}
+@media (max-width:360px){.grid{grid-template-columns:repeat(2,1fr)}.picker{grid-template-columns:repeat(5,minmax(0,1fr))}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
