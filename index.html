@@ -198,7 +198,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .hint .line-ico{display:inline-block;width:16px;height:16px;vertical-align:-3px;margin:0 1px}
 .hint.start{text-align:start;margin-top:12px}
 .hint.tip{text-wrap:balance}
-.by{text-align:center;margin:6px 0 8px;font-size:13px;font-weight:600}
+.by{text-align:center;margin:6px 0 8px;color:var(--muted);font-size:13px;font-weight:600}
 .foot{text-align:center;margin:26px 0 0}
 .foot .linkbtn{color:var(--muted);font-size:13px;font-weight:600;padding:8px}
 .by a{color:var(--muted);text-decoration:none;padding:8px}
@@ -493,6 +493,7 @@ function renderHome(){
    ${S.lists.length?'':`<div class="empty">${LOGO}<h2>No checklists yet</h2><p>Make one for leaving home, the office, a trip abroad, or anything you never want to double back for.</p></div>`}
    <div class="stack">${cards}${V.homeEdit?'':`<button class="card add" data-act="newlist">+ Add new list</button>`}</div>
    <p class="foot"><button class="linkbtn" data-act="backup">Backup &amp; restore</button></p>
+   <p class="by"><a href="https://ocd.oatmealmorning.com/privacy/" target="_blank" rel="noopener">Privacy</a> · <a href="https://ocd.oatmealmorning.com/support/" target="_blank" rel="noopener">Support</a></p>
    <p class="by"><a href="https://oatmealmorning.com/" target="_blank" rel="noopener">by Oatmeal Morning</a></p>`;
 }
 function renderList(){
