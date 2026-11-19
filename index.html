@@ -198,6 +198,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .grip svg{width:22px;height:22px}
 .row[data-sort]>[data-id]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .lifting{transform:scale(.98);transition:transform .45s}
+.still{animation:none!important}
 .dragging{transition:none!important;z-index:20;box-shadow:0 12px 32px rgba(30,20,60,.25);cursor:grabbing}
 .hint{color:var(--muted);font-size:14px;font-weight:600;text-align:center;margin:10px 0 0}
 .hint .line-ico{display:inline-block;width:16px;height:16px;vertical-align:-3px;margin:0 1px}
@@ -600,7 +601,7 @@ function renderPick(){
   const qi=document.getElementById('q');
   qi.addEventListener('input',e=>{V.q=e.target.value;const pos=e.target.selectionStart;render();const n=document.getElementById('q');n.focus();n.setSelectionRange(pos,pos)});
 }
-function renderLayer(){
+function renderLayer0(){
   if(V.party!=null){const TY=TYPES[V.party.t]||TYPES.leave;const [h,p]=TY.cheers[V.party.k]||TY.cheers[0];
     layer.innerHTML=`<div class="party" role="dialog" aria-modal="true" aria-label="${esc(h)}">
      <div class="burst">${[0,40,80,120,160,200,240,280,320].map(r=>`<i style="--r:${r}deg"></i>`).join('')}${LOGO}</div>
@@ -662,6 +663,11 @@ function renderLayer(){
     return}
   layer.innerHTML='';
 }
+/* redraw a sheet that is already open without replaying its slide-up animation */
+let lastSheet=null;
+function renderLayer(){const same=!!V.sheet&&V.sheet===lastSheet&&!V.party,el=layer.querySelector('.sheet-in'),top=el?el.scrollTop:0;
+  renderLayer0();lastSheet=V.party?null:V.sheet;
+  if(same){layer.querySelectorAll('.veil,.sheet').forEach(e=>e.classList.add('still'));const n=layer.querySelector('.sheet-in');if(n)n.scrollTop=top}}
 function render(){if(REM())remPrune();if(V.tip&&(V.screen!=='list'||V.listId!==V.tip||V.edit||V.menu)){V.tip=null;S.tip=true;save()}
   ({splash:renderSplash,home:renderHome,list:renderList,pick:renderPick})[V.screen]();renderLayer()}
 function toast(t,ms){document.querySelectorAll('.toast').forEach(x=>x.remove());const el=document.createElement('div');el.className='toast';el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),ms||1800)}
