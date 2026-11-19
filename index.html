@@ -218,6 +218,15 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .opt .oi{width:26px;height:26px;flex:none;color:var(--accent)}
 .opt:disabled{opacity:.45;cursor:default}
 .opt.on .dot{border:6px solid var(--accent)}
+/* reminders (phone app only) */
+.remline{display:flex;justify-content:center;margin:0 0 6px}
+.remline .linkbtn{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:14px;font-weight:600;padding:6px 10px}
+.remline .line-ico{width:16px;height:16px;flex:none}
+.field input[type=time]{-webkit-appearance:none;appearance:none;min-height:50px;font-variant-numeric:tabular-nums}
+.days{display:flex;gap:6px;justify-content:space-between}
+.days button{flex:1;min-width:0;height:44px;border-radius:999px;border:1.5px solid var(--line);font-weight:700;font-size:13px}
+.days button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chips.presets{margin-top:12px}
 @media (max-width:360px){.grid{grid-template-columns:repeat(2,1fr)}.picker{grid-template-columns:repeat(5,minmax(0,1fr))}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -244,7 +253,7 @@ const LOGO=`<img class="logo" src="${IMG.logo}" alt="OCD">`;
 
 const ic=(n,checked)=>{if(!IMG[n])n='star';if(n==='window-closed'&&checked===false)n='window-open';return `<img class="pic" src="${IMG[n]}" alt="" draggable="false">`};
 const L={back:'<path d="M19 12H5M11 6l-6 6 6 6"/>',more:'<circle cx="12" cy="5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="19" r="1.3" fill="currentColor"/>',
- pen:'<path d="M15 4l5 5L9 20H4v-5zM13 6l5 5"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>',check:'<path d="M5 12.5l4.5 4.5L19 7"/>',reset:'<path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4.5h4.5"/>',grip:'<path d="M5 8h14M5 12h14M5 16h14"/>',down:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',up:'<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>',trash:'<path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13"/>'};
+ pen:'<path d="M15 4l5 5L9 20H4v-5zM13 6l5 5"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>',check:'<path d="M5 12.5l4.5 4.5L19 7"/>',reset:'<path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4.5h4.5"/>',grip:'<path d="M5 8h14M5 12h14M5 16h14"/>',down:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',up:'<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>',trash:'<path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13"/>',bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.6 2.2H4.4zM10 20.5a2 2 0 0 0 4 0"/>'};
 const li=n=>`<svg viewBox="0 0 24 24" class="line-ico" aria-hidden="true">${L[n]}</svg>`;
 
 const CATS=[
@@ -453,7 +462,7 @@ function allNames(){const s=builtinNames();S.custom.forEach(c=>s.add(c.name));re
 const uid=()=>Math.random().toString(36).slice(2,9);
 const KEY='ocd-en-v1';
 function load(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null}catch(e){return null}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}try{remSync()}catch(e){}}
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 let S=load()||{lists:[],custom:[],seen:false};
@@ -464,6 +473,17 @@ let V={screen:S.seen?'home':'splash',listId:null,homeEdit:false,edit:false,pickE
 const app=document.getElementById('app'),layer=document.getElementById('layer');
 const cur=()=>S.lists.find(l=>l.id===V.listId);
 const isDone=l=>l.items.length>0&&l.items.every(i=>i.checked);
+/* Reminders exist only inside the phone app: the app shell defines window.ocdReminders (request, sync). On the website nothing is shown.
+   A list's reminder is l.rem={h,m,days} with days 0=Sun..6=Sat; it travels with backups and is ignored where there is no app shell. */
+const REM=()=>window.ocdReminders||null;
+const DAYN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function fmtDays(days){const s=[...days].sort((a,b)=>a-b).join('');if(s==='0123456')return 'Every day';if(s==='12345')return 'Mon–Fri';if(s==='01234')return 'Sun–Thu';if(s==='06')return 'Weekends';return s.split('').map(d=>DAYN[+d]).join(', ')}
+function fmtTime(r){try{return new Date(2000,0,1,r.h,r.m).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}catch(e){return String(r.h).padStart(2,'0')+':'+String(r.m).padStart(2,'0')}}
+/* counts only, for analytics: how many lists have a reminder, and how many notifications that books on the phone (iOS caps an app at 64) */
+function remStats(){const r=S.lists.filter(l=>l.rem&&l.rem.days&&l.rem.days.length);return {reminder_lists:r.length,reminder_notifications:r.reduce((a,l)=>a+(l.rem.days.length===7?1:l.rem.days.length),0)}}
+let remSig='';
+function remSync(force){const R=REM();if(!R)return;const want=S.lists.filter(l=>l.rem&&l.rem.days&&l.rem.days.length).map(l=>({id:l.id,name:l.name,h:l.rem.h,m:l.rem.m,days:l.rem.days}));
+  const sig=JSON.stringify(want);if(!force&&sig===remSig)return;remSig=sig;try{Promise.resolve(R.sync(want)).catch(()=>{})}catch(e){}}
 
 function renderSplash(){
   app.innerHTML=`<div class="topbar"><span></span><h1>OCD</h1><span></span></div>
@@ -512,10 +532,11 @@ function renderList(){
      <div class="tb-group">${V.rename?`<button class="tb" data-act="enddone" aria-label="Save name" style="color:var(--accent)">${li('check')}</button>`
        :`${n?`<button class="tb" data-act="edit" aria-label="Edit and reorder items">${li('pen')}</button>`:''}<button class="tb" data-act="menu" aria-label="List options">${li('more')}</button>`}
        ${V.menu?`<div class="menu-veil" data-act="menu"></div><div class="menu">
-         <button data-act="rename">Rename</button><button data-act="additems">Add or remove items</button><button data-act="edit">Reorder items</button><button data-act="typesheet">Finish message</button>
+         <button data-act="rename">Rename</button><button data-act="additems">Add or remove items</button><button data-act="edit">Reorder items</button><button data-act="typesheet">Finish message</button>${REM()?`<button data-act="remsheet">${l.rem?'Reminder':'Remind me'}</button>`:''}
          <button class="red" data-act="askdellist">Delete list</button></div>`:''}</div></div>
    ${n?`<div class="status">${go?`<div class="status-row go"><span class="gi">${li('check')}</span><div class="txt"><strong>${T(l).done}</strong><small>All ${n} checked</small></div><button class="reset" data-act="reset">${li('reset')}Clear</button></div>`
      :`<div class="status-row"><div class="txt"><strong>${d} of ${n} checked</strong><div class="bar"><b style="width:${Math.round(d/n*100)}%"></b></div></div><button class="reset" data-act="reset" ${d?'':'disabled'}>${li('reset')}Clear</button></div>`}</div>`:''}
+   ${REM()&&l.rem?`<p class="hint remline"><button class="linkbtn" data-act="remsheet" aria-label="Change reminder">${li('bell')}${fmtDays(l.rem.days)} at ${fmtTime(l.rem)}</button></p>`:''}
    ${V.ask==='list'?`<div class="card" style="min-height:0;margin-top:8px;gap:10px"><span class="label">Delete "${esc(l.name)}"?</span><div class="confirm"><button class="mini red" data-act="dellist">Delete</button><button class="mini" data-act="noask">Cancel</button></div></div>`:''}
    ${V.tip===l.id?`<p class="hint tip">Tap an item to check it. Tap ${li('pen')} to remove or reorder.</p>`:''}
    <div class="stack">${l.items.map(i=>`<div class="card ${i.checked?'on':''}" role="button" tabindex="0" aria-pressed="${i.checked}" data-act="toggle" data-id="${i.id}">
@@ -601,6 +622,17 @@ function renderLayer(){
        <button class="opt" data-act="import"><span class="oi">${li('up')}</span><span><b>Restore from a backup</b><small>Adds the lists from a backup file. Nothing here is deleted.</small></span></button>
       </div></div></div>`;
     return}
+  if(V.sheet==='rem'){const l=cur(),R=V.rd;if(!l||!R){V.sheet=null;layer.innerHTML='';return}
+    layer.innerHTML=`<div class="veil" data-act="closesheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Remind me">
+     <div class="sheet-head"><button class="tb" data-act="closesheet" aria-label="Close">${li('x')}</button><h2>Remind me</h2><span></span></div>
+     <div class="sheet-in"><p class="hint" style="text-align:start;margin-top:4px">A nudge on this phone to run through "${esc(l.name)}". Nothing leaves your phone.</p>
+      <div class="sec-title">Time</div><div class="field"><input id="remtime" type="time" value="${String(R.h).padStart(2,'0')}:${String(R.m).padStart(2,'0')}" aria-label="Reminder time" required></div>
+      <div class="sec-title">Days</div><div class="days">${DAYN.map((d,i)=>`<button class="${R.days.includes(i)?'on':''}" data-act="remday" data-i="${i}" aria-pressed="${R.days.includes(i)}" aria-label="${d}">${d.slice(0,2)}</button>`).join('')}</div>
+      <div class="chips presets"><button data-act="rempreset" data-p="all">Every day</button><button data-act="rempreset" data-p="wk">Mon–Fri</button><button data-act="rempreset" data-p="il">Sun–Thu</button></div>
+      <button class="btn" data-act="remsave" ${R.days.length?'':'disabled'}>${l.rem?'Save changes':'Set reminder'}</button>
+      ${l.rem?`<button class="dangerbtn" data-act="remoff">Remove reminder</button>`:''}</div></div>`;
+    const ti=document.getElementById('remtime');const rd=e=>{const m=/^(\d\d):(\d\d)/.exec(e.target.value||'');if(m){R.h=+m[1];R.m=+m[2]}};ti.addEventListener('input',rd);ti.addEventListener('change',rd);
+    return}
   if(V.sheet==='type'){const l=cur();if(!l){V.sheet=null;layer.innerHTML='';return}
     const auto=detectType(l.name,l.items),curT=TYPES[l.type]?l.type:'';
     const opt=(val,title,sub)=>`<button class="opt ${curT===val?'on':''}" data-act="settype" data-t="${val}"><span class="dot"></span><span><b>${esc(title)}</b><small>${esc(sub)}</small></span></button>`;
@@ -640,6 +672,14 @@ function act(a,d={}){
     case 'delitem':{const it=l.items.find(i=>i.id===d.id);l.items=l.items.filter(i=>i.id!==d.id);save();V.ask=null;if(it)toast(`Removed "${it.name}"`);break}
     case 'typesheet':V.menu=false;V.sheet='type';break;
     case 'backup':V.sheet='backup';break;
+    case 'remsheet':V.menu=false;V.rd=l.rem?{h:l.rem.h,m:l.rem.m,days:[...l.rem.days]}:{h:8,m:0,days:[0,1,2,3,4,5,6]};V.sheet='rem';break;
+    case 'remday':{const i=+d.i,ix=V.rd.days.indexOf(i);if(ix>=0)V.rd.days.splice(ix,1);else V.rd.days.push(i);break}
+    case 'rempreset':V.rd.days=d.p==='all'?[0,1,2,3,4,5,6]:d.p==='wk'?[1,2,3,4,5]:[0,1,2,3,4];break;
+    case 'remsave':{const R=REM(),rd=V.rd;if(!R||!rd||!rd.days.length)return;
+      Promise.resolve(R.request()).then(ok=>{if(!ok){toast('Notifications are off for OCD. Turn them on in Settings.');return}
+        l.rem={h:rd.h,m:rd.m,days:[...rd.days].sort((a,b)=>a-b)};save();V.sheet=null;V.rd=null;render();track('reminder_set',{days:l.rem.days.length,...remStats()});toast(`Reminder set: ${fmtDays(l.rem.days)} at ${fmtTime(l.rem)}`)})
+      .catch(()=>toast('Could not set the reminder'));return}
+    case 'remoff':delete l.rem;save();V.sheet=null;V.rd=null;track('reminder_removed',remStats());toast('Reminder removed');break;
     case 'settype':{if(d.t)l.type=d.t;else delete l.type;save();V.sheet=null;toast(`Finish message: ${T(l).label}`);break}
     case 'pickedit':V.pickEdit=!V.pickEdit;break;
     case 'edititem':{const k=d.key||'';let E;
@@ -737,7 +777,9 @@ window.ocdBack=function(){
   if(V.screen==='list'){act('home');return true}
   if(V.homeEdit){V.homeEdit=false;render();return true}
   return false};
-render();track('app_opened',{lists:S.lists.length});
+window.ocdOpenList=function(id){if(!S.lists.some(x=>x.id===id))return false;S.seen=true;V.party=null;V.sheet=null;V.rd=null;V.menu=V.edit=V.rename=V.homeEdit=false;V.ask=null;V.screen='list';V.listId=id;render();scrollTo(0,0);return true};
+if(window.ocdPendingList){ocdOpenList(window.ocdPendingList);window.ocdPendingList=null}
+render();track('app_opened',{lists:S.lists.length,...(REM()?remStats():{})});remSync(true);
 </script>
 
 </body>
