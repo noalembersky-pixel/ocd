@@ -663,6 +663,11 @@ function renderLayer0(){
     return}
   layer.innerHTML='';
 }
+/* update the open Remind me sheet in place (no redraw): day buttons, preset chips, next-time line */
+function remRefresh(){const R=V.rd;if(!R)return false;const sh=layer.querySelector('.sheet');if(!sh)return false;
+  sh.querySelectorAll('[data-act=remday]').forEach(b=>{const on=R.days.includes(+b.dataset.i);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});
+  const cur=[...R.days].sort().join('');sh.querySelectorAll('[data-act=rempreset]').forEach(b=>{const k=b.dataset.p,on=(k==='once'&&!cur)||(k==='all'&&cur==='0123456')||(k==='wk'&&cur==='12345')||(k==='il'&&cur==='01234');b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});
+  const nx=document.getElementById('remnext');if(nx)nx.innerHTML=R.days.length?`Next reminder: <b>${remNext(R)}</b>`:`One time: <b>${remNext(R)}</b>`;return true}
 /* redraw a sheet that is already open without replaying its slide-up animation */
 let lastSheet=null;
 function renderLayer(){const same=!!V.sheet&&V.sheet===lastSheet&&!V.party,el=layer.querySelector('.sheet-in'),top=el?el.scrollTop:0;
@@ -697,8 +702,8 @@ function act(a,d={}){
     case 'typesheet':V.menu=false;V.sheet='type';break;
     case 'backup':V.sheet='backup';break;
     case 'remsheet':V.menu=false;V.rd=remActive(l.rem)?{h:l.rem.h,m:l.rem.m,days:[...(l.rem.days||[])]}:{h:8,m:0,days:[]};V.sheet='rem';break;
-    case 'remday':{const i=+d.i,ix=V.rd.days.indexOf(i);if(ix>=0)V.rd.days.splice(ix,1);else V.rd.days.push(i);break}
-    case 'rempreset':V.rd.days=d.p==='once'?[]:d.p==='all'?[0,1,2,3,4,5,6]:d.p==='wk'?[1,2,3,4,5]:[0,1,2,3,4];break;
+    case 'remday':{const i=+d.i,ix=V.rd.days.indexOf(i);if(ix>=0)V.rd.days.splice(ix,1);else V.rd.days.push(i);if(remRefresh())return;break}
+    case 'rempreset':V.rd.days=d.p==='once'?[]:d.p==='all'?[0,1,2,3,4,5,6]:d.p==='wk'?[1,2,3,4,5]:[0,1,2,3,4];if(remRefresh())return;break;
     case 'remsave':{const R=REM(),rd=V.rd;if(!R||!rd)return;
       Promise.resolve(R.request()).then(ok=>{if(!ok){toast('Notifications are off for OCD. Turn them on in Settings.');return}
         const prev=l.rem;l.rem=rd.days.length?{h:rd.h,m:rd.m,days:[...rd.days].sort((a,b)=>a-b)}:{h:rd.h,m:rd.m,days:[],at:onceAt(rd).getTime()};try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
