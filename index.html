@@ -66,8 +66,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tb svg{width:22px;height:22px}
 
 /* splash + empty */
-.splash{min-height:calc(100vh - 140px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;text-align:center}
-.splash .logo{width:150px;height:150px}
+.splash{min-height:calc(100vh - 110px - env(safe-area-inset-top,0px));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;text-align:center}
+.splash .logo{width:120px;height:120px}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px;text-align:start;width:100%;max-width:300px}
+.steps li{display:flex;gap:14px;align-items:center;font-size:17px;font-weight:600;line-height:1.35}
+.steps b{flex:none;width:30px;height:30px;border-radius:50%;background:var(--soft);color:var(--accent);display:grid;place-items:center;font-size:15px;font-weight:700}
 .splash h2{margin:0;font-weight:400;font-size:36px;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}
 .empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;margin:40px 0 8px}
 .empty .logo{width:84px;height:84px;margin-bottom:6px}
@@ -193,7 +196,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .row .confirm{flex:none}
 .grip{width:44px;height:44px;flex:none;display:grid;place-items:center;color:var(--muted);touch-action:none;cursor:grab}
 .grip svg{width:22px;height:22px}
-.row.dragging{z-index:20;box-shadow:0 12px 32px rgba(30,20,60,.25);cursor:grabbing}
+.row[data-sort]>[data-id]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.lifting{transform:scale(.98);transition:transform .45s}
+.dragging{transition:none!important;z-index:20;box-shadow:0 12px 32px rgba(30,20,60,.25);cursor:grabbing}
 .hint{color:var(--muted);font-size:14px;font-weight:600;text-align:center;margin:10px 0 0}
 .hint .line-ico{display:inline-block;width:16px;height:16px;vertical-align:-3px;margin:0 1px}
 .hint.start{text-align:start;margin-top:12px}
@@ -487,7 +492,7 @@ function remSync(force){const R=REM();if(!R)return;const want=S.lists.filter(l=>
 
 function renderSplash(){
   app.innerHTML=`<div class="topbar"><span></span><h1>OCD</h1><span></span></div>
-   <div class="splash">${LOGO}<h2>Leave your<br>worries behind.</h2><p class="hint" style="margin:0;max-width:300px">Off, Closed, Done. Your lists stay on this device; you can save a backup anytime from My lists.</p><button class="btn" data-act="start">Get started</button></div>`;
+   <div class="splash">${LOGO}<h2>Never turn back<br>to check again.</h2><ol class="steps"><li><b>1</b><span>Pick what you check before you leave</span></li><li><b>2</b><span>Tap each one as you go</span></li><li><b>3</b><span>See it done. Clear it for next time.</span></li></ol><button class="btn" data-act="start">Make my first list</button></div>`;
 }
 function rowHtml(id,icon,name,delAct){
   return `<div class="row" data-id="${id}"><span class="art">${ic(icon)}</span><span class="label">${esc(name)}</span>
@@ -511,7 +516,7 @@ function renderHome(){
   app.innerHTML=`<div class="topbar"><span></span><h1>My lists</h1>
      ${S.lists.length?`<button class="tb" data-act="homeedit" aria-label="${V.homeEdit?'Done editing':'Edit lists'}" style="${V.homeEdit?'color:var(--accent)':''}">${li(V.homeEdit?'check':'pen')}</button>`:'<span></span>'}</div>
    ${S.lists.length?'':`<div class="empty">${LOGO}<h2>No checklists yet</h2><p>Make one for leaving home, the office, a trip abroad, or anything you never want to double back for.</p></div>`}
-   <div class="stack">${cards}${V.homeEdit?'':`<button class="card add" data-act="newlist">+ Add new list</button>`}</div>
+   <div class="stack" ${V.homeEdit?'':'data-sort="lists"'}>${cards}${V.homeEdit?'':`<button class="card add" data-act="newlist">+ Add new list</button>`}</div>
    <p class="foot"><button class="linkbtn" data-act="backup">Backup &amp; restore</button></p>
    <p class="by"><a href="https://ocd.oatmealmorning.com/privacy/" target="_blank" rel="noopener">Privacy</a> · <a href="https://ocd.oatmealmorning.com/support/" target="_blank" rel="noopener">Support</a></p>
    <p class="by"><a href="https://oatmealmorning.com/" target="_blank" rel="noopener">by Oatmeal Morning</a></p>`;
@@ -538,8 +543,8 @@ function renderList(){
      :`<div class="status-row"><div class="txt"><strong>${d} of ${n} checked</strong><div class="bar"><b style="width:${Math.round(d/n*100)}%"></b></div></div><button class="reset" data-act="reset" ${d?'':'disabled'}>${li('reset')}Clear</button></div>`}</div>`:''}
    ${REM()&&l.rem?`<p class="hint remline"><button class="linkbtn" data-act="remsheet" aria-label="Change reminder">${li('bell')}${fmtDays(l.rem.days)} at ${fmtTime(l.rem)}</button></p>`:''}
    ${V.ask==='list'?`<div class="card" style="min-height:0;margin-top:8px;gap:10px"><span class="label">Delete "${esc(l.name)}"?</span><div class="confirm"><button class="mini red" data-act="dellist">Delete</button><button class="mini" data-act="noask">Cancel</button></div></div>`:''}
-   ${V.tip===l.id?`<p class="hint tip">Tap an item to check it. Tap ${li('pen')} to remove or reorder.</p>`:''}
-   <div class="stack">${l.items.map(i=>`<div class="card ${i.checked?'on':''}" role="button" tabindex="0" aria-pressed="${i.checked}" data-act="toggle" data-id="${i.id}">
+   ${V.tip===l.id?`<p class="hint tip">Tap an item to check it. Hold and drag to move it.</p>`:''}
+   <div class="stack" data-sort="items">${l.items.map(i=>`<div class="card ${i.checked?'on':''}" role="button" tabindex="0" aria-pressed="${i.checked}" data-act="toggle" data-id="${i.id}">
      <span class="art">${ic(i.icon,i.checked)}</span><span class="label">${esc(i.name)}</span></div>`).join('')}
      <button class="card add" data-act="additems">+ Add item</button></div>`;
   const r=document.getElementById('rename');
@@ -653,7 +658,7 @@ function act(a,d={}){
   switch(a){
     case 'export':{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download='ocd-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);track('backup_exported',{lists:S.lists.length});V.sheet=null;render();toast('Backup saved to your downloads');return}
     case 'import':{const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.lists))throw 0;const have=new Set(S.lists.map(x=>x.id));let n=0;d.lists.forEach(x=>{if(!have.has(x.id)){S.lists.push(x);n++}});(d.custom||[]).forEach(c=>{if(!S.custom.some(x=>x.name===c.name))S.custom.push(c)});S.seen=true;save();V.sheet=null;V.screen='home';render();track('backup_imported',{lists:n});toast(n?`Restored ${n} list${n===1?'':'s'}`:'Nothing new to restore')}catch(e){toast('That file is not an OCD backup')}};r.readAsText(f)};inp.click();return}
-    case 'start':S.seen=true;save();V.screen='home';track('app_started');break;
+    case 'start':S.seen=true;save();track('app_started');act('newlist');return;
     case 'open':V.screen='list';V.listId=d.id;V.rename=V.menu=V.edit=false;V.ask=null;scrollTo(0,0);break;
     case 'home':V.screen='home';V.rename=V.menu=V.edit=false;V.ask=null;scrollTo(0,0);break;
     case 'homeedit':V.homeEdit=!V.homeEdit;V.ask=null;break;
@@ -741,11 +746,12 @@ document.addEventListener('keydown',e=>{
 /* drag to reorder (pointer events: works with touch and mouse) */
 let drag=null;
 function dragStep(){if(!drag)return;const {row,box}=drag;
-  const t=drag.y+scrollY-drag.start;row.style.transform=`translateY(${t}px)`;
-  const r=row.getBoundingClientRect(),mid=r.top+r.height/2;
-  const nx=row.nextElementSibling,pv=row.previousElementSibling;
-  if(nx){const b=nx.getBoundingClientRect();if(mid>b.top+b.height/2){const o=row.offsetTop;box.insertBefore(nx,row);drag.start+=row.offsetTop-o;row.style.transform=`translateY(${drag.y+scrollY-drag.start}px)`}}
-  if(pv){const b=pv.getBoundingClientRect();if(mid<b.top+b.height/2){const o=row.offsetTop;box.insertBefore(row,pv);drag.start+=row.offsetTop-o;row.style.transform=`translateY(${drag.y+scrollY-drag.start}px)`}}}
+  row.style.transform=`translateY(${drag.y+scrollY-drag.start}px)`;
+  for(let n=0;n<50;n++){const r=row.getBoundingClientRect(),mid=r.top+r.height/2;
+    const ok=e=>e&&e.dataset&&e.dataset.id?e:null,nx=ok(row.nextElementSibling),pv=ok(row.previousElementSibling);let moved=false;
+    if(nx){const b=nx.getBoundingClientRect();if(mid>b.top+b.height/2){const o=row.offsetTop;box.insertBefore(nx,row);drag.start+=row.offsetTop-o;moved=true}}
+    if(!moved&&pv){const b=pv.getBoundingClientRect();if(mid<b.top+b.height/2){const o=row.offsetTop;box.insertBefore(row,pv);drag.start+=row.offsetTop-o;moved=true}}
+    row.style.transform=`translateY(${drag.y+scrollY-drag.start}px)`;if(!moved)break}}
 function dragLoop(){if(!drag)return;const edge=90;let v=0;
   if(drag.y<edge+56)v=-Math.ceil((edge+56-drag.y)/8);else if(drag.y>innerHeight-edge)v=Math.ceil((drag.y-innerHeight+edge)/8);
   if(v){scrollBy(0,v);dragStep()}drag.raf=requestAnimationFrame(dragLoop)}
@@ -754,13 +760,30 @@ document.addEventListener('pointerdown',e=>{const g=e.target.closest('.grip');if
   try{g.setPointerCapture(e.pointerId)}catch(_){}
   drag={row,box,g,y:e.clientY,start:e.clientY+scrollY};row.classList.add('dragging');
   try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}drag.raf=requestAnimationFrame(dragLoop)});
+/* press and hold (~0.45 s) on a list card or an item, then drag; a quick tap still opens/checks */
+let lp=null,noClick=0;
+function lpCancel(){if(lp){clearTimeout(lp.t);lp.row.classList.remove('lifting');lp=null}}
+document.addEventListener('pointerdown',e=>{if(drag||e.button>0)return;
+  const row=e.target.closest('[data-sort]>[data-id]');if(!row||V.ask||V.menu||V.rename)return;
+  const inner=e.target.closest('button,a,input,.grip,.confirm');if(inner&&inner!==row&&row.contains(inner))return;
+  const box=row.parentElement;if(box.querySelectorAll(':scope>[data-id]').length<2)return;
+  lpCancel();lp={row,box,x:e.clientX,y:e.clientY,id:e.pointerId,t:setTimeout(()=>{if(!lp)return;
+    const {row,box,y}=lp;lp=null;row.classList.remove('lifting');
+    drag={row,box,y,start:y+scrollY,lp:true};row.classList.add('dragging');noClick=Date.now();
+    try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}drag.raf=requestAnimationFrame(dragLoop)},450)};
+  row.classList.add('lifting')});
+document.addEventListener('pointermove',e=>{if(lp&&(Math.abs(e.clientX-lp.x)>8||Math.abs(e.clientY-lp.y)>8))lpCancel()},true);
+document.addEventListener('pointerup',lpCancel,true);document.addEventListener('pointercancel',lpCancel,true);
+document.addEventListener('scroll',lpCancel,{passive:true});
+document.addEventListener('contextmenu',e=>{if(drag||lp)e.preventDefault()});
+document.addEventListener('click',e=>{if(noClick&&Date.now()-noClick<5000&&!drag){noClick=0;e.preventDefault();e.stopPropagation()}},true);
 document.addEventListener('pointermove',e=>{if(!drag)return;e.preventDefault();drag.y=e.clientY;dragStep()},{passive:false});
 function dragEnd(){if(!drag)return;const {row,box}=drag;cancelAnimationFrame(drag.raf);
   row.style.transform='';row.classList.remove('dragging');
   const ids=[...box.children].map(c=>c.dataset.id);
   const sortBy=arr=>ids.map(id=>arr.find(x=>x.id===id)).filter(Boolean);
   if(box.dataset.sort==='lists')S.lists=sortBy(S.lists);else{const l=cur();if(l)l.items=sortBy(l.items)}
-  save();drag=null}
+  save();if(drag.lp)noClick=Date.now()-4600;drag=null}
 document.addEventListener('pointerup',dragEnd);document.addEventListener('pointercancel',dragEnd);
 document.addEventListener('touchmove',e=>{if(drag)e.preventDefault()},{passive:false});
 
