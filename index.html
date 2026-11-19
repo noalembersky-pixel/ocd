@@ -182,7 +182,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .link{padding:10px;font-weight:700;color:var(--accent)}
 @keyframes pop{from{transform:scale(.3) rotate(-20deg);opacity:0}}
 @keyframes fly{0%{opacity:1;transform:translate(-50%,-50%) rotate(var(--r)) translateY(0)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--r)) translateY(-115px)}}
-.toast{position:fixed;bottom:calc(96px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-weight:600;padding:10px 18px;border-radius:8px;z-index:40;animation:fade .2s;white-space:nowrap}
+.toast{position:fixed;bottom:calc(96px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-weight:600;padding:12px 20px;border-radius:999px;box-shadow:0 6px 18px rgba(98,0,234,.28);z-index:40;animation:fade .2s;width:max-content;max-width:calc(100vw - 48px);text-align:center;line-height:1.35}
 /* edit / reorder rows */
 .topbar.t2{grid-template-columns:88px 1fr 88px}
 .tb-group{display:flex;justify-content:flex-end;position:relative}
@@ -488,7 +488,7 @@ function fmtTime(r){try{return new Date(2000,0,1,r.h,r.m).toLocaleTimeString([],
 function remStats(){const r=S.lists.filter(l=>l.rem&&l.rem.days&&l.rem.days.length);return {reminder_lists:r.length,reminder_notifications:r.reduce((a,l)=>a+(l.rem.days.length===7?1:l.rem.days.length),0)}}
 let remSig='';
 function remSync(force){const R=REM();if(!R)return;const want=S.lists.filter(l=>l.rem&&l.rem.days&&l.rem.days.length).map(l=>({id:l.id,name:l.name,h:l.rem.h,m:l.rem.m,days:l.rem.days}));
-  const sig=JSON.stringify(want);if(!force&&sig===remSig)return;remSig=sig;try{Promise.resolve(R.sync(want)).catch(()=>{})}catch(e){}}
+  const sig=JSON.stringify(want);if(!force&&sig===remSig)return;remSig=sig;let pr;try{pr=Promise.resolve(R.sync(want))}catch(e){pr=Promise.reject(e)}pr.catch(e=>{remSig='';try{console.log('ocd reminders sync failed',e&&e.message)}catch(_){}});return pr}
 
 function renderSplash(){
   app.innerHTML=`<div class="topbar"><span></span><h1>OCD</h1><span></span></div>
@@ -651,7 +651,7 @@ function renderLayer(){
 }
 function render(){if(V.tip&&(V.screen!=='list'||V.listId!==V.tip||V.edit||V.menu)){V.tip=null;S.tip=true;save()}
   ({splash:renderSplash,home:renderHome,list:renderList,pick:renderPick})[V.screen]();renderLayer()}
-function toast(t){const el=document.createElement('div');el.className='toast';el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),1600)}
+function toast(t,ms){document.querySelectorAll('.toast').forEach(x=>x.remove());const el=document.createElement('div');el.className='toast';el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),ms||1800)}
 
 function act(a,d={}){
   const l=cur(),D=V.draft;
@@ -682,8 +682,12 @@ function act(a,d={}){
     case 'rempreset':V.rd.days=d.p==='all'?[0,1,2,3,4,5,6]:d.p==='wk'?[1,2,3,4,5]:[0,1,2,3,4];break;
     case 'remsave':{const R=REM(),rd=V.rd;if(!R||!rd||!rd.days.length)return;
       Promise.resolve(R.request()).then(ok=>{if(!ok){toast('Notifications are off for OCD. Turn them on in Settings.');return}
-        l.rem={h:rd.h,m:rd.m,days:[...rd.days].sort((a,b)=>a-b)};save();V.sheet=null;V.rd=null;render();track('reminder_set',{days:l.rem.days.length,...remStats()});toast(`Reminder set: ${fmtDays(l.rem.days)} at ${fmtTime(l.rem)}`)})
-      .catch(()=>toast('Could not set the reminder'));return}
+        const prev=l.rem;l.rem={h:rd.h,m:rd.m,days:[...rd.days].sort((a,b)=>a-b)};try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+        return Promise.resolve(remSync(true)).then(res=>{const mine=res&&res.byList?res.byList[l.id]||0:-1;
+          if(mine===0)throw new Error('the phone has no reminder booked for this list');
+          V.sheet=null;V.rd=null;render();track('reminder_set',{days:l.rem.days.length,...remStats()});toast(`Reminder set: ${fmtDays(l.rem.days)} at ${fmtTime(l.rem)}`)})
+        .catch(e=>{if(prev)l.rem=prev;else delete l.rem;save();toast('Could not set the reminder'+(e&&e.message?': '+e.message:''),4500)})})
+      .catch(e=>toast('Could not set the reminder'+(e&&e.message?': '+e.message:''),4500));return}
     case 'remoff':delete l.rem;save();V.sheet=null;V.rd=null;track('reminder_removed',remStats());toast('Reminder removed');break;
     case 'settype':{if(d.t)l.type=d.t;else delete l.type;save();V.sheet=null;toast(`Finish message: ${T(l).label}`);break}
     case 'pickedit':V.pickEdit=!V.pickEdit;break;
