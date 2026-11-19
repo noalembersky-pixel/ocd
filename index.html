@@ -232,7 +232,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .days button{flex:1;min-width:0;height:44px;border-radius:999px;border:1.5px solid var(--line);font-weight:700;font-size:13px}
 .days button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .chips.presets{margin-top:12px}
-.remnext{margin-top:14px;font-size:15px}.remnext b{color:var(--ink)}
+.remnext{margin-top:14px;font-size:15px}.opt-note{font-weight:500;color:var(--muted)}.remnext b{color:var(--ink)}
 @media (max-width:360px){.grid{grid-template-columns:repeat(2,1fr)}.picker{grid-template-columns:repeat(5,minmax(0,1fr))}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -485,13 +485,21 @@ const REM=()=>window.ocdReminders||null;
 const DAYN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function fmtDays(days){const s=[...days].sort((a,b)=>a-b).join('');if(s==='0123456')return 'Every day';if(s==='12345')return 'Mon–Fri';if(s==='01234')return 'Sun–Thu';if(s==='06')return 'Weekends';return s.split('').map(d=>DAYN[+d]).join(', ')}
 function fmtTime(r){try{return new Date(2000,0,1,r.h,r.m).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}catch(e){return String(r.h).padStart(2,'0')+':'+String(r.m).padStart(2,'0')}}
-function remNext(r){if(!r||!r.days||!r.days.length)return '';const now=new Date();
-  for(let i=0;i<8;i++){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i,r.h,r.m);if(d>now&&r.days.includes(d.getDay()))
-    return (i===0?'today':i===1?'tomorrow':d.toLocaleDateString([],{weekday:'long'}))+' at '+fmtTime(r)}return ''}
+/* a reminder repeats on r.days (0=Sun..6=Sat); with no days it is a one-time reminder at r.at (ms) */
+const remRepeats=r=>!!(r&&r.days&&r.days.length);
+const remActive=r=>!!r&&(remRepeats(r)||(r.at>Date.now()));
+function onceAt(r){const n=new Date();let d=new Date(n.getFullYear(),n.getMonth(),n.getDate(),r.h,r.m);if(d<=n)d=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,r.h,r.m);return d}
+function whenStr(d){const n=new Date(),t0=new Date(n.getFullYear(),n.getMonth(),n.getDate()),i=Math.round((new Date(d.getFullYear(),d.getMonth(),d.getDate())-t0)/864e5);
+  return (i===0?'today':i===1?'tomorrow':d.toLocaleDateString([],{weekday:'long'}))+' at '+fmtTime({h:d.getHours(),m:d.getMinutes()})}
+function remNext(r){if(!r)return '';if(!remRepeats(r))return whenStr(r.at?new Date(r.at):onceAt(r));const now=new Date();
+  for(let i=0;i<8;i++){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i,r.h,r.m);if(d>now&&r.days.includes(d.getDay()))return whenStr(d)}return ''}
+function remLabel(r){return remRepeats(r)?`${fmtDays(r.days)} at ${fmtTime(r)}`:`Once, ${remNext(r)}`}
+/* drop one-time reminders that have already fired */
+function remPrune(){let ch=false;S.lists.forEach(l=>{if(l.rem&&!remActive(l.rem)){delete l.rem;ch=true}});if(ch)try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 /* counts only, for analytics: how many lists have a reminder, and how many notifications that books on the phone (iOS caps an app at 64) */
-function remStats(){const r=S.lists.filter(l=>l.rem&&l.rem.days&&l.rem.days.length);return {reminder_lists:r.length,reminder_notifications:r.reduce((a,l)=>a+(l.rem.days.length===7?1:l.rem.days.length),0)}}
+function remStats(){const r=S.lists.filter(l=>remActive(l.rem));return {reminder_lists:r.length,reminder_notifications:r.reduce((a,l)=>a+(!remRepeats(l.rem)||l.rem.days.length===7?1:l.rem.days.length),0)}}
 let remSig='';
-function remSync(force){const R=REM();if(!R)return;const want=S.lists.filter(l=>l.rem&&l.rem.days&&l.rem.days.length).map(l=>({id:l.id,name:l.name,h:l.rem.h,m:l.rem.m,days:l.rem.days}));
+function remSync(force){const R=REM();if(!R)return;remPrune();const want=S.lists.filter(l=>remActive(l.rem)).map(l=>({id:l.id,name:l.name,h:l.rem.h,m:l.rem.m,days:l.rem.days||[],...(remRepeats(l.rem)?{}:{at:l.rem.at})}));
   const sig=JSON.stringify(want);if(!force&&sig===remSig)return;remSig=sig;let pr;try{pr=Promise.resolve(R.sync(want))}catch(e){pr=Promise.reject(e)}pr.catch(e=>{remSig='';try{console.log('ocd reminders sync failed',e&&e.message)}catch(_){}});return pr}
 
 function renderSplash(){
@@ -541,11 +549,11 @@ function renderList(){
      <div class="tb-group">${V.rename?`<button class="tb" data-act="enddone" aria-label="Save name" style="color:var(--accent)">${li('check')}</button>`
        :`${n?`<button class="tb" data-act="edit" aria-label="Edit and reorder items">${li('pen')}</button>`:''}<button class="tb" data-act="menu" aria-label="List options">${li('more')}</button>`}
        ${V.menu?`<div class="menu-veil" data-act="menu"></div><div class="menu">
-         <button data-act="rename">Rename</button><button data-act="additems">Add or remove items</button><button data-act="edit">Reorder items</button><button data-act="typesheet">Finish message</button>${REM()?`<button data-act="remsheet">${l.rem?'Reminder':'Remind me'}</button>`:''}
+         <button data-act="rename">Rename</button><button data-act="additems">Add or remove items</button><button data-act="edit">Reorder items</button><button data-act="typesheet">Finish message</button>${REM()?`<button data-act="remsheet">${remActive(l.rem)?'Reminder':'Remind me'}</button>`:''}
          <button class="red" data-act="askdellist">Delete list</button></div>`:''}</div></div>
    ${n?`<div class="status">${go?`<div class="status-row go"><span class="gi">${li('check')}</span><div class="txt"><strong>${T(l).done}</strong><small>All ${n} checked</small></div><button class="reset" data-act="reset">${li('reset')}Clear</button></div>`
      :`<div class="status-row"><div class="txt"><strong>${d} of ${n} checked</strong><div class="bar"><b style="width:${Math.round(d/n*100)}%"></b></div></div><button class="reset" data-act="reset" ${d?'':'disabled'}>${li('reset')}Clear</button></div>`}</div>`:''}
-   ${REM()&&l.rem?`<p class="hint remline"><button class="linkbtn" data-act="remsheet" aria-label="Change reminder">${li('bell')}${fmtDays(l.rem.days)} at ${fmtTime(l.rem)}</button></p>`:''}
+   ${REM()&&remActive(l.rem)?`<p class="hint remline"><button class="linkbtn" data-act="remsheet" aria-label="Change reminder">${li('bell')}${remLabel(l.rem)}</button></p>`:''}
    ${V.ask==='list'?`<div class="card" style="min-height:0;margin-top:8px;gap:10px"><span class="label">Delete "${esc(l.name)}"?</span><div class="confirm"><button class="mini red" data-act="dellist">Delete</button><button class="mini" data-act="noask">Cancel</button></div></div>`:''}
    ${V.tip===l.id?`<p class="hint tip">Tap an item to check it. Hold and drag to move it.</p>`:''}
    <div class="stack" data-sort="items">${l.items.map(i=>`<div class="card ${i.checked?'on':''}" role="button" tabindex="0" aria-pressed="${i.checked}" data-act="toggle" data-id="${i.id}">
@@ -636,12 +644,12 @@ function renderLayer(){
      <div class="sheet-head"><button class="tb" data-act="closesheet" aria-label="Close">${li('x')}</button><h2>Remind me</h2><span></span></div>
      <div class="sheet-in"><p class="hint" style="text-align:start;margin-top:4px">A nudge on this phone to run through "${esc(l.name)}". Nothing leaves your phone.</p>
       <div class="sec-title">Time</div><div class="field"><input id="remtime" type="time" value="${String(R.h).padStart(2,'0')}:${String(R.m).padStart(2,'0')}" aria-label="Reminder time" required></div>
-      <div class="sec-title">Days</div><div class="days">${DAYN.map((d,i)=>`<button class="${R.days.includes(i)?'on':''}" data-act="remday" data-i="${i}" aria-pressed="${R.days.includes(i)}" aria-label="${d}">${d.slice(0,2)}</button>`).join('')}</div>
-      <div class="chips presets"><button data-act="rempreset" data-p="all">Every day</button><button data-act="rempreset" data-p="wk">Mon–Fri</button><button data-act="rempreset" data-p="il">Sun–Thu</button></div>
-      <p class="hint remnext" id="remnext">${R.days.length?`Next reminder: <b>${remNext(R)}</b>`:'Pick at least one day.'}</p>
-      <button class="btn" data-act="remsave" ${R.days.length?'':'disabled'}>${l.rem?'Save changes':'Set reminder'}</button>
-      ${l.rem?`<button class="dangerbtn" data-act="remoff">Remove reminder</button>`:''}</div></div>`;
-    const ti=document.getElementById('remtime');const rd=e=>{const m=/^(\d\d):(\d\d)/.exec(e.target.value||'');if(m){R.h=+m[1];R.m=+m[2];const nx=document.getElementById('remnext');if(nx&&R.days.length)nx.innerHTML=`Next reminder: <b>${remNext(R)}</b>`}};ti.addEventListener('input',rd);ti.addEventListener('change',rd);
+      <div class="sec-title">Repeat <span class="opt-note">(optional)</span></div><div class="days">${DAYN.map((d,i)=>`<button class="${R.days.includes(i)?'on':''}" data-act="remday" data-i="${i}" aria-pressed="${R.days.includes(i)}" aria-label="${d}">${d.slice(0,2)}</button>`).join('')}</div>
+      <div class="chips presets">${[['once','Just once'],['all','Every day'],['wk','Mon–Fri'],['il','Sun–Thu']].map(([k,t])=>{const cur=[...R.days].sort().join(''),on=(k==='once'&&!cur)||(k==='all'&&cur==='0123456')||(k==='wk'&&cur==='12345')||(k==='il'&&cur==='01234');return `<button class="${on?'on':''}" data-act="rempreset" data-p="${k}" aria-pressed="${on}">${t}</button>`}).join('')}</div>
+      <p class="hint remnext" id="remnext">${R.days.length?`Next reminder: <b>${remNext(R)}</b>`:`One time: <b>${remNext(R)}</b>`}</p>
+      <button class="btn" data-act="remsave" ${remActive(l.rem)?'>Save changes':'>Set reminder'}</button>
+      ${remActive(l.rem)?`<button class="dangerbtn" data-act="remoff">Remove reminder</button>`:''}</div></div>`;
+    const ti=document.getElementById('remtime');const rd=e=>{const m=/^(\d\d):(\d\d)/.exec(e.target.value||'');if(m){R.h=+m[1];R.m=+m[2];const nx=document.getElementById('remnext');if(nx)nx.innerHTML=R.days.length?`Next reminder: <b>${remNext(R)}</b>`:`One time: <b>${remNext(R)}</b>`}};ti.addEventListener('input',rd);ti.addEventListener('change',rd);
     return}
   if(V.sheet==='type'){const l=cur();if(!l){V.sheet=null;layer.innerHTML='';return}
     const auto=detectType(l.name,l.items),curT=TYPES[l.type]?l.type:'';
@@ -654,7 +662,7 @@ function renderLayer(){
     return}
   layer.innerHTML='';
 }
-function render(){if(V.tip&&(V.screen!=='list'||V.listId!==V.tip||V.edit||V.menu)){V.tip=null;S.tip=true;save()}
+function render(){if(REM())remPrune();if(V.tip&&(V.screen!=='list'||V.listId!==V.tip||V.edit||V.menu)){V.tip=null;S.tip=true;save()}
   ({splash:renderSplash,home:renderHome,list:renderList,pick:renderPick})[V.screen]();renderLayer()}
 function toast(t,ms){document.querySelectorAll('.toast').forEach(x=>x.remove());const el=document.createElement('div');el.className='toast';el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),ms||1800)}
 
@@ -682,15 +690,15 @@ function act(a,d={}){
     case 'delitem':{const it=l.items.find(i=>i.id===d.id);l.items=l.items.filter(i=>i.id!==d.id);save();V.ask=null;if(it)toast(`Removed "${it.name}"`);break}
     case 'typesheet':V.menu=false;V.sheet='type';break;
     case 'backup':V.sheet='backup';break;
-    case 'remsheet':V.menu=false;V.rd=l.rem?{h:l.rem.h,m:l.rem.m,days:[...l.rem.days]}:{h:8,m:0,days:[0,1,2,3,4,5,6]};V.sheet='rem';break;
+    case 'remsheet':V.menu=false;V.rd=remActive(l.rem)?{h:l.rem.h,m:l.rem.m,days:[...(l.rem.days||[])]}:{h:8,m:0,days:[]};V.sheet='rem';break;
     case 'remday':{const i=+d.i,ix=V.rd.days.indexOf(i);if(ix>=0)V.rd.days.splice(ix,1);else V.rd.days.push(i);break}
-    case 'rempreset':V.rd.days=d.p==='all'?[0,1,2,3,4,5,6]:d.p==='wk'?[1,2,3,4,5]:[0,1,2,3,4];break;
-    case 'remsave':{const R=REM(),rd=V.rd;if(!R||!rd||!rd.days.length)return;
+    case 'rempreset':V.rd.days=d.p==='once'?[]:d.p==='all'?[0,1,2,3,4,5,6]:d.p==='wk'?[1,2,3,4,5]:[0,1,2,3,4];break;
+    case 'remsave':{const R=REM(),rd=V.rd;if(!R||!rd)return;
       Promise.resolve(R.request()).then(ok=>{if(!ok){toast('Notifications are off for OCD. Turn them on in Settings.');return}
-        const prev=l.rem;l.rem={h:rd.h,m:rd.m,days:[...rd.days].sort((a,b)=>a-b)};try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+        const prev=l.rem;l.rem=rd.days.length?{h:rd.h,m:rd.m,days:[...rd.days].sort((a,b)=>a-b)}:{h:rd.h,m:rd.m,days:[],at:onceAt(rd).getTime()};try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
         return Promise.resolve(remSync(true)).then(res=>{const mine=res&&res.byList?res.byList[l.id]||0:-1;
           if(mine===0)throw new Error('the phone has no reminder booked for this list');
-          V.sheet=null;V.rd=null;render();track('reminder_set',{days:l.rem.days.length,...remStats()});toast(`Reminder set. Next: ${remNext(l.rem)}`,2600)})
+          V.sheet=null;V.rd=null;render();track('reminder_set',{days:l.rem.days.length,once:!remRepeats(l.rem),...remStats()});toast(`Reminder set. Next: ${remNext(l.rem)}`,2600)})
         .catch(e=>{if(prev)l.rem=prev;else delete l.rem;save();toast('Could not set the reminder'+(e&&e.message?': '+e.message:''),4500)})})
       .catch(e=>toast('Could not set the reminder'+(e&&e.message?': '+e.message:''),4500));return}
     case 'remoff':delete l.rem;save();V.sheet=null;V.rd=null;track('reminder_removed',remStats());toast('Reminder removed');break;
