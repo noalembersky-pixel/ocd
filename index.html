@@ -228,7 +228,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .remline{display:flex;justify-content:center;margin:0 0 6px}
 .remline .linkbtn{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:14px;font-weight:600;padding:6px 10px}
 .remline .line-ico{width:16px;height:16px;flex:none}
-.field input[type=time]{-webkit-appearance:none;appearance:none;min-height:50px;font-variant-numeric:tabular-nums}
+.field input[type=time],.field input[type=date]{-webkit-appearance:none;appearance:none;min-height:50px;font-variant-numeric:tabular-nums}
 .days{display:flex;gap:6px;justify-content:space-between}
 .days button{flex:1;min-width:0;height:44px;border-radius:999px;border:1.5px solid var(--line);font-weight:700;font-size:13px}
 .days button.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -489,11 +489,15 @@ function fmtTime(r){try{return new Date(2000,0,1,r.h,r.m).toLocaleTimeString([],
 /* a reminder repeats on r.days (0=Sun..6=Sat); with no days it is a one-time reminder at r.at (ms) */
 const remRepeats=r=>!!(r&&r.days&&r.days.length);
 const remActive=r=>!!r&&(remRepeats(r)||(r.at>Date.now()));
-function onceAt(r){const n=new Date();let d=new Date(n.getFullYear(),n.getMonth(),n.getDate(),r.h,r.m);if(d<=n)d=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,r.h,r.m);return d}
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+/* one-time reminder: on r.date (YYYY-MM-DD) if chosen, else the next time the clock reaches r.h:r.m */
+function onceAt(r){if(r.date){const q=r.date.split('-').map(Number);return new Date(q[0],q[1]-1,q[2],r.h,r.m)}const n=new Date();let d=new Date(n.getFullYear(),n.getMonth(),n.getDate(),r.h,r.m);if(d<=n)d=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,r.h,r.m);return d}
 function whenStr(d){const n=new Date(),t0=new Date(n.getFullYear(),n.getMonth(),n.getDate()),i=Math.round((new Date(d.getFullYear(),d.getMonth(),d.getDate())-t0)/864e5);
-  return (i===0?'today':i===1?'tomorrow':d.toLocaleDateString([],{weekday:'long'}))+' at '+fmtTime({h:d.getHours(),m:d.getMinutes()})}
+  return (i===0?'today':i===1?'tomorrow':i>1&&i<7?d.toLocaleDateString([],{weekday:'long'}):d.toLocaleDateString([],{weekday:'short',day:'numeric',month:'short'}))+' at '+fmtTime({h:d.getHours(),m:d.getMinutes()})}
 function remNext(r){if(!r)return '';if(!remRepeats(r))return whenStr(r.at?new Date(r.at):onceAt(r));const now=new Date();
   for(let i=0;i<8;i++){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i,r.h,r.m);if(d>now&&r.days.includes(d.getDay()))return whenStr(d)}return ''}
+function remLine(R){if(R.days.length)return `Next reminder: <b>${remNext(R)}</b>`;return onceAt(R)>new Date()?`One time: <b>${remNext(R)}</b>`:`That time has already passed. Pick a later time or date.`}
+function remOnceDefault(R){R.date=ymd(onceAt({h:R.h,m:R.m}));R.dateAuto=true}
 function remLabel(r){return remRepeats(r)?`${fmtDays(r.days)} at ${fmtTime(r)}`:`Once, ${remNext(r)}`}
 /* drop one-time reminders that have already fired */
 function remPrune(){let ch=false;S.lists.forEach(l=>{if(l.rem&&!remActive(l.rem)){delete l.rem;ch=true}});if(ch)try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -645,12 +649,14 @@ function renderLayer0(){
      <div class="sheet-head"><button class="tb" data-act="closesheet" aria-label="Close">${li('x')}</button><h2>Remind me</h2><span></span></div>
      <div class="sheet-in"><p class="hint" style="text-align:start;margin-top:4px">A nudge on this phone to run through "${esc(l.name)}". Nothing leaves your phone.</p>
       <div class="sec-title">Time</div><div class="field"><input id="remtime" type="time" value="${String(R.h).padStart(2,'0')}:${String(R.m).padStart(2,'0')}" aria-label="Reminder time" required></div>
-      <div class="sec-title">Repeat <span class="opt-note">(optional)</span></div><div class="days">${DAYN.map((d,i)=>`<button class="${R.days.includes(i)?'on':''}" data-act="remday" data-i="${i}" aria-pressed="${R.days.includes(i)}" aria-label="${d}">${d.slice(0,2)}</button>`).join('')}</div>
-      <div class="chips presets">${[['once','Just once'],['all','Every day'],['wk','Mon–Fri'],['il','Sun–Thu']].map(([k,t])=>{const cur=[...R.days].sort().join(''),on=(k==='once'&&!cur)||(k==='all'&&cur==='0123456')||(k==='wk'&&cur==='12345')||(k==='il'&&cur==='01234');return `<button class="${on?'on':''}" data-act="rempreset" data-p="${k}" aria-pressed="${on}">${t}</button>`}).join('')}</div>
-      <p class="hint remnext" id="remnext">${R.days.length?`Next reminder: <b>${remNext(R)}</b>`:`One time: <b>${remNext(R)}</b>`}</p>
+      <div class="sec-title">How often</div><div class="chips presets">${[['once','Just once'],['all','Every day'],['wk','Mon–Fri'],['il','Sun–Thu']].map(([k,t])=>{const cur=[...R.days].sort().join(''),on=(k==='once'&&!cur)||(k==='all'&&cur==='0123456')||(k==='wk'&&cur==='12345')||(k==='il'&&cur==='01234');return `<button class="${on?'on':''}" data-act="rempreset" data-p="${k}" aria-pressed="${on}">${t}</button>`}).join('')}</div>
+      <div id="remdays" ${R.days.length?'':'hidden'}><div class="sec-title">Days</div><div class="days">${DAYN.map((d,i)=>`<button class="${R.days.includes(i)?'on':''}" data-act="remday" data-i="${i}" aria-pressed="${R.days.includes(i)}" aria-label="${d}">${d.slice(0,2)}</button>`).join('')}</div></div>
+      <div id="remdate" ${R.days.length?'hidden':''}><div class="sec-title">Date</div><div class="field"><input id="remdatein" type="date" min="${ymd(new Date())}" value="${R.date||''}" aria-label="Reminder date" required></div></div>
+      <p class="hint remnext" id="remnext">${remLine(R)}</p>
       <button class="btn" data-act="remsave" ${remActive(l.rem)?'>Save changes':'>Set reminder'}</button>
       ${remActive(l.rem)?`<button class="dangerbtn" data-act="remoff">Remove reminder</button>`:''}</div></div>`;
-    const ti=document.getElementById('remtime');const rd=e=>{const m=/^(\d\d):(\d\d)/.exec(e.target.value||'');if(m){R.h=+m[1];R.m=+m[2];const nx=document.getElementById('remnext');if(nx)nx.innerHTML=R.days.length?`Next reminder: <b>${remNext(R)}</b>`:`One time: <b>${remNext(R)}</b>`}};ti.addEventListener('input',rd);ti.addEventListener('change',rd);
+    const ti=document.getElementById('remtime');const rd=e=>{const m=/^(\d\d):(\d\d)/.exec(e.target.value||'');if(m){R.h=+m[1];R.m=+m[2];if(R.dateAuto){remOnceDefault(R);const di=document.getElementById('remdatein');if(di)di.value=R.date}const nx=document.getElementById('remnext');if(nx)nx.innerHTML=remLine(R)}};ti.addEventListener('input',rd);ti.addEventListener('change',rd);
+    const di=document.getElementById('remdatein');const rdd=e=>{if(/^\d{4}-\d\d-\d\d$/.test(e.target.value||'')){R.date=e.target.value;R.dateAuto=false;const nx=document.getElementById('remnext');if(nx)nx.innerHTML=remLine(R)}};di.addEventListener('input',rdd);di.addEventListener('change',rdd);
     return}
   if(V.sheet==='type'){const l=cur();if(!l){V.sheet=null;layer.innerHTML='';return}
     const auto=detectType(l.name,l.items),curT=TYPES[l.type]?l.type:'';
@@ -667,7 +673,8 @@ function renderLayer0(){
 function remRefresh(){const R=V.rd;if(!R)return false;const sh=layer.querySelector('.sheet');if(!sh)return false;
   sh.querySelectorAll('[data-act=remday]').forEach(b=>{const on=R.days.includes(+b.dataset.i);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});
   const cur=[...R.days].sort().join('');sh.querySelectorAll('[data-act=rempreset]').forEach(b=>{const k=b.dataset.p,on=(k==='once'&&!cur)||(k==='all'&&cur==='0123456')||(k==='wk'&&cur==='12345')||(k==='il'&&cur==='01234');b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});
-  const nx=document.getElementById('remnext');if(nx)nx.innerHTML=R.days.length?`Next reminder: <b>${remNext(R)}</b>`:`One time: <b>${remNext(R)}</b>`;return true}
+  const once=!R.days.length,dr=document.getElementById('remdays'),dt=document.getElementById('remdate');if(dr)dr.hidden=once;if(dt)dt.hidden=!once;const di=document.getElementById('remdatein');if(di&&R.date)di.value=R.date;
+  const nx=document.getElementById('remnext');if(nx)nx.innerHTML=remLine(R);return true}
 /* redraw a sheet that is already open without replaying its slide-up animation */
 let lastSheet=null;
 function renderLayer(){const same=!!V.sheet&&V.sheet===lastSheet&&!V.party,el=layer.querySelector('.sheet-in'),top=el?el.scrollTop:0;
@@ -701,10 +708,10 @@ function act(a,d={}){
     case 'delitem':{const it=l.items.find(i=>i.id===d.id);l.items=l.items.filter(i=>i.id!==d.id);save();V.ask=null;if(it)toast(`Removed "${it.name}"`);break}
     case 'typesheet':V.menu=false;V.sheet='type';break;
     case 'backup':V.sheet='backup';break;
-    case 'remsheet':V.menu=false;V.rd=remActive(l.rem)?{h:l.rem.h,m:l.rem.m,days:[...(l.rem.days||[])]}:{h:8,m:0,days:[]};V.sheet='rem';break;
-    case 'remday':{const i=+d.i,ix=V.rd.days.indexOf(i);if(ix>=0)V.rd.days.splice(ix,1);else V.rd.days.push(i);if(remRefresh())return;break}
-    case 'rempreset':V.rd.days=d.p==='once'?[]:d.p==='all'?[0,1,2,3,4,5,6]:d.p==='wk'?[1,2,3,4,5]:[0,1,2,3,4];if(remRefresh())return;break;
-    case 'remsave':{const R=REM(),rd=V.rd;if(!R||!rd)return;
+    case 'remsheet':V.menu=false;V.rd=remActive(l.rem)?{h:l.rem.h,m:l.rem.m,days:[...(l.rem.days||[])]}:{h:8,m:0,days:[]};if(V.rd.days.length||!l.rem||!l.rem.at)remOnceDefault(V.rd);else V.rd.date=ymd(new Date(l.rem.at));V.sheet='rem';break;
+    case 'remday':{const i=+d.i,ix=V.rd.days.indexOf(i);if(ix>=0){if(V.rd.days.length===1){toast('Keep at least one day, or tap Just once');return}V.rd.days.splice(ix,1)}else V.rd.days.push(i);if(remRefresh())return;break}
+    case 'rempreset':if(d.p==='once'&&V.rd.days.length&&V.rd.dateAuto!==false)remOnceDefault(V.rd);V.rd.days=d.p==='once'?[]:d.p==='all'?[0,1,2,3,4,5,6]:d.p==='wk'?[1,2,3,4,5]:[0,1,2,3,4];if(remRefresh())return;break;
+    case 'remsave':{const R=REM(),rd=V.rd;if(!R||!rd)return;if(!rd.days.length&&onceAt(rd)<=new Date()){toast('That time has already passed. Pick a later time or date.',3000);return}
       Promise.resolve(R.request()).then(ok=>{if(!ok){toast('Notifications are off for OCD. Turn them on in Settings.');return}
         const prev=l.rem;l.rem=rd.days.length?{h:rd.h,m:rd.m,days:[...rd.days].sort((a,b)=>a-b)}:{h:rd.h,m:rd.m,days:[],at:onceAt(rd).getTime()};try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
         return Promise.resolve(remSync(true)).then(res=>{const mine=res&&res.byList?res.byList[l.id]||0:-1;
