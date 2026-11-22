@@ -483,6 +483,7 @@ const isDone=l=>l.items.length>0&&l.items.every(i=>i.checked);
 /* Reminders exist only inside the phone app: the app shell defines window.ocdReminders (request, sync). On the website nothing is shown.
    A list's reminder is l.rem={h,m,days} with days 0=Sun..6=Sat; it travels with backups and is ignored where there is no app shell. */
 const REM=()=>window.ocdReminders||null;
+const SHARE_URL='https://ocd.oatmealmorning.com/get/',SHARE_TEXT='I stopped walking back to check the door. Get OCD: Off, Closed, Done →';
 const DAYN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function fmtDays(days){const s=[...days].sort((a,b)=>a-b).join('');if(s==='0123456')return 'Every day';if(s==='12345')return 'Mon–Fri';if(s==='01234')return 'Sun–Thu';if(s==='06')return 'Weekends';return s.split('').map(d=>DAYN[+d]).join(', ')}
 function fmtTime(r){try{return new Date(2000,0,1,r.h,r.m).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}catch(e){return String(r.h).padStart(2,'0')+':'+String(r.m).padStart(2,'0')}}
@@ -534,7 +535,7 @@ function renderHome(){
      ${S.lists.length?`<button class="tb" data-act="homeedit" aria-label="${V.homeEdit?'Done editing':'Edit lists'}" style="${V.homeEdit?'color:var(--accent)':''}">${li(V.homeEdit?'check':'pen')}</button>`:'<span></span>'}</div>
    ${S.lists.length?'':`<div class="empty">${LOGO}<h2>No checklists yet</h2><p>Make one for leaving home, the office, a trip abroad, or anything you never want to double back for.</p></div>`}
    <div class="stack" ${V.homeEdit?'':'data-sort="lists"'}>${cards}${V.homeEdit?'':`<button class="card add" data-act="newlist">+ Add new list</button>`}</div>
-   <p class="foot"><button class="linkbtn" data-act="backup">Backup &amp; restore</button></p>
+   <p class="foot">${window.ocdShareApp?'<button class="linkbtn" data-act="shareapp">Share OCD</button> · ':''}<button class="linkbtn" data-act="backup">Backup &amp; restore</button></p>
    <p class="by"><a href="https://ocd.oatmealmorning.com/privacy/" target="_blank" rel="noopener">Privacy</a> · <a href="https://ocd.oatmealmorning.com/support/" target="_blank" rel="noopener">Support</a></p>
    <p class="by"><a href="https://oatmealmorning.com/" target="_blank" rel="noopener">by Oatmeal Morning</a></p>`;
 }
@@ -708,6 +709,8 @@ function act(a,d={}){
     case 'delitem':{const it=l.items.find(i=>i.id===d.id);l.items=l.items.filter(i=>i.id!==d.id);save();V.ask=null;if(it)toast(`Removed "${it.name}"`);break}
     case 'typesheet':V.menu=false;V.sheet='type';break;
     case 'backup':V.sheet='backup';break;
+    /* Share OCD exists only inside the phone apps (the app shell defines window.ocdShareApp); it sends the /get/ signpost page with the store buttons */
+    case 'shareapp':if(window.ocdShareApp)window.ocdShareApp(SHARE_TEXT,SHARE_URL).then(()=>track('app_shared')).catch(()=>{});return;
     case 'remsheet':V.menu=false;V.rd=remActive(l.rem)?{h:l.rem.h,m:l.rem.m,days:[...(l.rem.days||[])]}:{h:8,m:0,days:[]};if(V.rd.days.length||!l.rem||!l.rem.at)remOnceDefault(V.rd);else V.rd.date=ymd(new Date(l.rem.at));V.sheet='rem';break;
     case 'remday':{const i=+d.i,ix=V.rd.days.indexOf(i);if(ix>=0){if(V.rd.days.length===1){toast('Keep at least one day, or tap Just once');return}V.rd.days.splice(ix,1)}else V.rd.days.push(i);if(remRefresh())return;break}
     case 'rempreset':if(d.p==='once'&&V.rd.days.length&&V.rd.dateAuto!==false)remOnceDefault(V.rd);V.rd.days=d.p==='once'?[]:d.p==='all'?[0,1,2,3,4,5,6]:d.p==='wk'?[1,2,3,4,5]:[0,1,2,3,4];if(remRefresh())return;break;
